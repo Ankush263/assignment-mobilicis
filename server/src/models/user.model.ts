@@ -8,8 +8,9 @@ export interface UserInterface {
 	lastName: string;
 	email: string;
 	password: string;
-	active: boolean;
 	image: string;
+	os: string;
+	role: string;
 }
 
 const userSchema = new mongoose.Schema<UserInterface>(
@@ -31,12 +32,16 @@ const userSchema = new mongoose.Schema<UserInterface>(
 			type: String,
 			required: [true, 'please provide a password'],
 		},
-		active: {
-			type: Boolean,
-			default: false,
-		},
 		image: {
 			type: String,
+		},
+		os: {
+			type: String,
+		},
+		role: {
+			type: String,
+			enum: ['Admin', 'User'],
+			default: 'User',
 		},
 	},
 	{

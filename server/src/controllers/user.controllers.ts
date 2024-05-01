@@ -6,6 +6,7 @@ import { catchAsync } from '../utils/catchAsync';
 import { AppError } from '../utils/appError';
 import bcrypt from 'bcryptjs';
 import { UserInterface } from '../models/user.model';
+import { UAParser } from 'ua-parser-js';
 dotenv.config();
 
 const signToken = (id: string) => {
@@ -42,7 +43,11 @@ const createAndSendToken = (
 
 export const login = catchAsync(
 	async (req: Request, res: Response, next: NextFunction) => {
-		const { email, password }: { email: string; password: string } = req.body;
+		const {
+			email,
+			password,
+			os,
+		}: { email: string; password: string; os: string } = req.body;
 
 		if (!email || !password) {
 			return next(new AppError(`Please provide email and password`, 404));
@@ -65,11 +70,13 @@ export const signup = catchAsync(
 			lastName,
 			email,
 			password,
+			role,
 		}: {
 			firstName: string;
 			lastName: String;
 			email: string;
 			password: string;
+			role: string;
 		} = req.body;
 
 		const existUser: UserInterface[] = await User.find({ email });
@@ -82,6 +89,11 @@ export const signup = catchAsync(
 			return next(new AppError(`Please provide email and password`, 400));
 		}
 
+		const ua = req.get('User-Agent');
+
+		const parser = new UAParser(ua);
+		console.log(parser.getResult(), ua);
+
 		const hashedPassword: string = bcrypt.hashSync(password, 12);
 
 		const newUser: UserInterface = await User.create({
@@ -89,6 +101,7 @@ export const signup = catchAsync(
 			lastName,
 			email,
 			password: hashedPassword,
+			role,
 		});
 
 		createAndSendToken(newUser, 202, res);
@@ -134,6 +147,17 @@ export const protect = catchAsync(
 	}
 );
 
+export const restrictTo = (...roles: string[]) => {
+	return (req: Request | any, res: Response, next: NextFunction) => {
+		if (!roles.includes(req.user.role)) {
+			return next(
+				new AppError(`You don't have permission to perform this action`, 403)
+			);
+		}
+		next();
+	};
+};
+
 export const resetPassword = catchAsync(
 	async (req: Request | any, res: Response, next: NextFunction) => {
 		const user = await User.findById(req.user.id);
@@ -154,9 +178,17 @@ export const resetPassword = catchAsync(
 export const getUser = catchAsync(
 	async (req: Request | any, res: Response, next: NextFunction) => {
 		const user = await User.findById(req.user.id);
-		if (!user.active) {
-			return next(new AppError('User is not varified', 404));
-		}
+
+		res.status(200).json({
+			status: 'success',
+			data: user,
+		});
+	}
+);
+
+export const getAllUsers = catchAsync(
+	async (req: Request | any, res: Response, next: NextFunction) => {
+		const user = await User.find();
 
 		res.status(200).json({
 			status: 'success',
